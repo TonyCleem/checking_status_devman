@@ -1,4 +1,3 @@
-import sys
 import time
 
 from environs import env
@@ -8,76 +7,56 @@ import requests
 import telegram
 
 
-def error_print(*args, **kwargs):
-    print(*args, file=sys.stderr, **kwargs)
+def get_lesson_status(url, devman_token, timestamp=None):
+    headers = {"Authorization": f"Token {devman_token}"}
+    payload = {"timestamp": timestamp} if timestamp else None
+    response = requests.get(url, headers=headers, params=payload)
+    response.raise_for_status()
+    return response.json()
 
 
-def get_lesson_status(url, devman_token):
-    headers = {
-        'Authorization': f'Token {devman_token}'
-    }
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        status = response.json()
-        return status
-    except requests.exceptions.ReadTimeout as error:
-        error_print(error)
-    except requests.exceptions.ConnectionError as error:
-        print('ConnectionError: No internet connection\nAttempt to reconnect')
-        time.sleep(10)
-        error_print(error)
+def main():
+    env.read_env()
+    telegram_token = env("TELEGRAM_BOT_TOKEN")
+    devman_token = env("DEVMAN_TOKEN")
+    telegram_chat_id = input("Введите чат ID:")
+    url = "https://dvmn.org/api/long_polling/"
+    bot = telegram.Bot(token=telegram_token)
 
+    timestamp = None
+    while True:
+        try:
+            review_results = get_lesson_status(url, devman_token, timestamp)
+        except requests.exceptions.ReadTimeout:
+            continue
+        except requests.exceptions.ConnectionError:
+            print("ConnectionError: No internet connection\nAttempt to reconnect")
+            time.sleep(30)
+            continue
 
-def get_new_lesson_status(url, devman_token, timestamp):
-    headers = {
-        'Authorization': f'Token {devman_token}'
-    }
-    payload = {
-        'timestamp': f'{timestamp}'
-    }
-    try:
-        response = requests.get(url, headers=headers, params=payload)
-        response.raise_for_status()
-        status = response.json()
-        return status
-    except requests.exceptions.ReadTimeout as error:
-        error_print(error)
-    except requests.exceptions.ConnectionError as error:
-        print('ConnectionError: No internet connection\nAttempt to reconnect')
-        time.sleep(10)
-        error_print(error)
+        if review_results["status"] == "timeout":
+            timestamp = review_results["timestamp_to_request"]
+            continue
+
+        if review_results["status"] == "found":
+            works = review_results["new_attempts"]
+            for work in works:
+                review_message = (
+                    f'У Вас проверили работу "{work["lesson_title"]}\n'
+                    f"Ссылка на работу {work['lesson_url']}\n\n"
+                )
+                if work["is_negative"]:
+                    bot.send_message(
+                        telegram_chat_id,
+                        review_message + "К сожалению в работе нашлись ошибки.",
+                    )
+                else:
+                    bot.send_message(
+                        telegram_chat_id,
+                        review_message
+                        + "Преподователю все понравилось, можно приступать к следующему уроку!",
+                    )
 
 
 if __name__ == "__main__":
-    env.read_env()
-    telegram_token = env('TELEGRAM_BOT_TOKEN')
-    devman_token = env('DEVMAN_TOKEN')
-    telegram_chat_id = input('Введите чат ID: ')
-    url = 'https://dvmn.org/api/long_polling/'
-    bot = telegram.Bot(token=telegram_token)
-    review_results = get_lesson_status(url, devman_token)
-
-    while True:
-        if review_results['status'] == 'timeout':
-            timestamp = review_results['timestamp_to_request']
-            review_results = get_new_lesson_status(url, devman_token, timestamp)
-        if review_results['status'] == 'found':
-            print(review_results)
-            works = review_results['new_attempts']
-            for work in works:
-                timestamp = work['timestamp']
-                review_message = (
-                        f'У Вас проверили работу "{work['lesson_title']}\n'
-                        f'Ссылка на работу {work['lesson_url']}\n\n'
-                )
-                if work['is_negative']:
-                    bot.send_message(
-                        telegram_chat_id, review_message + "К сожалению в работе нашлись ошибки."
-                    )
-
-                if not work['is_negative']:
-                    bot.send_message(
-                        telegram_chat_id, review_message + "Преподователю все понравилось, можно приступать к следующему уроку!"
-                    )
-        break
+    main()
