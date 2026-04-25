@@ -5,14 +5,12 @@ from environs import env
 import requests
 
 import telegram
-from telegram.utils.request import Request
 
 
 def get_lesson_status(url, devman_token, timestamp=None):
     headers = {"Authorization": f"Token {devman_token}"}
     payload = {"timestamp": timestamp} if timestamp else None
-    proxy = {"proxy_url": "164.90.221.76:1081"}
-    response = requests.get(url, headers=headers, params=payload, proxy=proxy)
+    response = requests.get(url, headers=headers, params=payload)
     response.raise_for_status()
     return response.json()
 
@@ -24,8 +22,7 @@ def main():
     telegram_chat_id = input("Введите чат ID:")
     url = "https://dvmn.org/api/long_polling/"
 
-    request = Request(proxy_url="socks4://91.211.100.35:44744")
-    bot = telegram.Bot(token=telegram_token, request=request)
+    bot = telegram.Bot(token=telegram_token)
 
     timestamp = None
     while True:
