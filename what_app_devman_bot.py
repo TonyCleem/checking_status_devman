@@ -6,6 +6,8 @@ import requests
 
 import telegram
 
+import logging
+
 
 def get_lesson_status(url, devman_token, timestamp=None):
     headers = {"Authorization": f"Token {devman_token}"}
@@ -19,10 +21,15 @@ def main():
     env.read_env()
     telegram_token = env("TELEGRAM_BOT_TOKEN")
     devman_token = env("DEVMAN_TOKEN")
-    telegram_chat_id = input("Введите чат ID:")
+    telegram_chat_id = "-1002385506480"
     url = "https://dvmn.org/api/long_polling/"
+    logging.basicConfig(
+            level=logging.INFO,
+            format="%(process)d - %(levelname)s - %(message)s"
+    )
 
     bot = telegram.Bot(token=telegram_token)
+    logging.info("Bot started")
 
     timestamp = None
     while True:
@@ -31,7 +38,7 @@ def main():
         except requests.exceptions.ReadTimeout:
             continue
         except requests.exceptions.ConnectionError:
-            print("ConnectionError: No internet connection\nAttempt to reconnect")
+            logging.error("ConnectionError: No internet connection. Attempting to reconnect..")
             time.sleep(30)
             continue
 
