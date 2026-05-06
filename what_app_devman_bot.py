@@ -7,6 +7,7 @@ import requests
 import telegram
 
 import logging
+from logging.handlers import RotatingFileHandler
 
 
 def get_lesson_status(url, devman_token, timestamp=None):
@@ -17,28 +18,35 @@ def get_lesson_status(url, devman_token, timestamp=None):
     return response.json()
 
 
+class LogsHandler(logging.Handler):
+    def emit(self, record):
+        log_entry = self.format(record)
+
+
 def main():
     env.read_env()
     telegram_token = env("TELEGRAM_BOT_TOKEN")
     devman_token = env("DEVMAN_TOKEN")
     telegram_chat_id = "-1002385506480"
     url = "https://dvmn.org/api/long_polling/"
-    logging.basicConfig(
-            level=logging.INFO,
-            format="%(process)d - %(levelname)s - %(message)s"
-    )
-
     bot = telegram.Bot(token=telegram_token)
-    logging.info("Bot started")
+
+    logger = logging.getLogger("telegram_bot")
+    logger.setLevel(logging.INFO)
+    logger.addHandler(LogsHandler())
+    logger.info("bot starting")
 
     timestamp = None
+
     while True:
         try:
             review_results = get_lesson_status(url, devman_token, timestamp)
         except requests.exceptions.ReadTimeout:
             continue
         except requests.exceptions.ConnectionError:
-            logging.error("ConnectionError: No internet connection. Attempting to reconnect..")
+            logging.error(
+                "ConnectionError: No internet connection. Attempting to reconnect.."
+            )
             time.sleep(30)
             continue
 
