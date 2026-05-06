@@ -33,7 +33,9 @@ def main():
 
     logger = logging.getLogger("telegram_bot")
     logger.setLevel(logging.INFO)
-    logger.addHandler(LogsHandler())
+    handler = RotatingFileHandler("app.log", maxBytes=200, backupCount=2)
+    logger.addHandler(handler)
+
     logger.info("bot starting")
 
     timestamp = None
