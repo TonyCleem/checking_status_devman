@@ -22,21 +22,18 @@ def main():
     url = "https://dvmn.org/api/long_polling/"
     bot = telegram.Bot(token=telegram_token)
 
-    class TelegramHandler(logging.Handler):
+    class TelegarmHandler(logging.Handler):
         def emit(self, record):
             log_entry = self.format(record)
             bot.send_message(telegram_chat_id, log_entry)
 
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-    logger.addHandler(TelegramHandler())
+    logger.addHandler(TelegarmHandler())
     logger.info("Бот запущен")
 
     timestamp = None
 
     while True:
         try:
-            1 / 0
             review_results = get_lesson_status(url, devman_token, timestamp)
         except requests.exceptions.ReadTimeout:
             continue
@@ -44,11 +41,6 @@ def main():
             logger.error("Бот упал: No internet connection. Attempting to reconnect..")
             time.sleep(30)
             continue
-        except Exception:
-            logger.exception("Бот упал с неожиданной ошибкой")
-
-        finally:
-            logger.info("Бот завершил работу")
 
         if review_results["status"] == "timeout":
             timestamp = review_results["timestamp_to_request"]
