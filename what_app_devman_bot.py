@@ -36,7 +36,6 @@ def main():
 
     while True:
         try:
-            1 / 0
             review_results = get_lesson_status(url, devman_token, timestamp)
         except requests.exceptions.ReadTimeout:
             continue
